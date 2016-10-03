@@ -3,18 +3,40 @@
 #include <string>
 #include <vector>
 #include <stack>
+#include <chrono>
+
+using namespace std;
+typedef unsigned char value;
+
+class BenchMark{
+    chrono::high_resolution_clock t;
+    chrono::high_resolution_clock::time_point start, end;
+    int b;
+    int d;
+public:
+    BenchMark(int _b, int _d) : b(_b), d(_d){};
+    void startTimer(){
+        start = chrono::high_resolution_clock::now();
+    }
+    void endTimer() {
+        end = chrono::high_resolution_clock::now();
+    }
+    double stepsPerS() {
+        long long totalSteps = 1;
+        for (int i = b; i > b - d; i--) {
+            totalSteps *= i;
+        }
+        cout << totalSteps / chrono::duration_cast<chrono::seconds>(end - start).count() << endl;
+        return 0;
+    }
+};
 
 struct PossibleNode {
     PossibleNode *prev, *next;
     int move;
 };
 
-using namespace std;
-
-typedef unsigned char index;
-typedef unsigned char value;
-
-PossibleNode* constructPossibleLink(char *occupationBoard, index boardSize) {
+PossibleNode* constructPossibleLink(char *occupationBoard, int boardSize) {
     PossibleNode *head = new PossibleNode;
     PossibleNode *cur = head;
     for (int i = 0; i < boardSize * boardSize; i++) {
@@ -26,11 +48,14 @@ PossibleNode* constructPossibleLink(char *occupationBoard, index boardSize) {
             cur = newNode;
         }
     }
-    cur->next = NULL;
+    PossibleNode *end = new PossibleNode;
+    cur->next = end;
+    end->prev = cur;
+    end->move = -1;
     return head;
 }
 
-void boardScore(value *valueBoard, char *occupationBoard, char player, index boardSize, int *totalScore, int *myScore, int *oppScore) {
+void boardScore(value *valueBoard, char *occupationBoard, char player, int boardSize, int *totalScore, int *myScore, int *oppScore) {
     *myScore = 0;
     *totalScore = 0;
     *oppScore = 0;
@@ -44,7 +69,7 @@ void boardScore(value *valueBoard, char *occupationBoard, char player, index boa
     }
 }
 
-void updateScore(int move, value *valueBoard, char *occupationBoard, char player, index boardSize, int *myScore, int *oppScore) {
+void updateScore(int move, value *valueBoard, char *occupationBoard, char player, int boardSize, int *myScore, int *oppScore) {
     bool raid = false;
     int scoreGetStake = 0, scoreGetRaid = 0;
     scoreGetStake += valueBoard[move];
@@ -85,30 +110,61 @@ void updateScore(int move, value *valueBoard, char *occupationBoard, char player
 }
 
 
-int miniMax(value *valueBoard, char *occupationBoard, char player, index boardSize, int depth) {
+int miniMax(value *valueBoard, char *occupationBoard, char player, int boardSize, int depth) {
     PossibleNode *head = constructPossibleLink(occupationBoard, boardSize);
     int myScore, oppScore, totalScore;
     boardScore(valueBoard, occupationBoard, player, boardSize, &myScore, &oppScore, &totalScore);
     stack<PossibleNode*> moves;
-    int curDepth = 0;
+    stack<int> score;
+
+    char oppPlayer = player == 'X' ? 'O' : 'X';
+    int curDepth = 1;
     bool maxMove = true;
-    PossibleNode *cur = head;
-    moves.push(cur);
+    PossibleNode *cur = head->next;
     while (true) {
-        PossibleNode *cur = moves.top()->next;
-        moves.pop();
-        if (cur) {
-            moves.push(cur);
-            cur->prev->next = cur->next;
-
+        if (curDepth < depth) {
+            if (cur->move >= 0) {
+                curDepth++;
+                moves.push(cur);
+                cur->prev->next = cur->next;
+                cur->next->prev = cur->prev;
+                cur = head->next;
+            } else {
+                if (moves.empty()) {
+                    break;
+                }
+                curDepth--;
+                cur = moves.top();
+                cur->prev->next = cur;
+                cur->next->prev = cur;
+                moves.pop();
+                cur = cur->next;
+            }
+        } else {
+            while (cur->move >= 0) {
+                cur = cur->next;
+            }
+            if (moves.empty()) {
+                break;
+            }
+            cur = moves.top();
+            cur->prev->next = cur;
+            cur->next->prev = cur;
+            curDepth--;
+            moves.pop();
+            cur = cur->next;
         }
+        char temp = player;
+        player = oppPlayer;
+        oppPlayer = temp;
+        maxMove ^= true;
     }
-
+    return 0;
 }
 
 int main() {
     ifstream in("input.txt");
-    index boardSize;
+    int boardSize;
     int  depth;
     char player;
     string mode;
@@ -132,6 +188,11 @@ int main() {
         occupationBoard[i] = c;
     }
     in.close();
+    BenchMark b = BenchMark(36, 6);
+    b.startTimer();
+    miniMax(valueBoard, occupationBoard, player, boardSize, depth);
+    b.endTimer();
+    cout << b.stepsPerS();
 
 
 }
