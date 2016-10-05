@@ -10,6 +10,15 @@
 
 using namespace std;
 
+void printOccupationBoard(char *occupationBoard, int boardSize) {
+    for (int i = 0; i < boardSize; i++) {
+        for (int j = 0; j < boardSize; j++) {
+            cout << occupationBoard[i * boardSize + j];
+        }
+        cout << endl;
+    }
+}
+
 class BenchMark{
     chrono::high_resolution_clock t;
     chrono::high_resolution_clock::time_point start, end;
@@ -36,6 +45,14 @@ public:
 struct PossibleNode {
     PossibleNode *prev, *next;
     int move;
+};
+
+struct SearchNode {
+    PossibleNode *move;
+    int changeSize;
+    int changes[3];
+    int result;
+    int score;
 };
 
 PossibleNode* constructPossibleLink(char *occupationBoard, int boardSize) {
@@ -70,9 +87,12 @@ int boardScore(int *valueBoard, char *occupationBoard, char player, int boardSiz
     return myScore - oppScore;
 }
 
-int updateScore(int move, int *valueBoard, char *occupationBoard, char player, int boardSize) {
+int updateScoreBoard(int move, int *valueBoard, char *occupationBoard, char player, int boardSize, SearchNode *sn) {
+    //Change occupation board only if sn is not NULL
     bool raid = false;
     int scoreGetStake = 0, scoreGetRaid = 0;
+    int raidSize = 0;
+    int raidIndex[3];
     scoreGetStake += valueBoard[move];
     if (move >= boardSize) {
         int value = valueBoard[move - boardSize];
@@ -80,6 +100,7 @@ int updateScore(int move, int *valueBoard, char *occupationBoard, char player, i
             raid = true;
         } else if (occupationBoard[move - boardSize] != '.') {
             scoreGetRaid += 2 * value;
+            raidIndex[raidSize++] = move - boardSize;
         }
     }
     if (move < boardSize * boardSize - boardSize) {
@@ -88,6 +109,7 @@ int updateScore(int move, int *valueBoard, char *occupationBoard, char player, i
             raid = true;
         } else if (occupationBoard[move + boardSize] != '.') {
             scoreGetRaid += 2 * value;
+            raidIndex[raidSize++] = move + boardSize;
         }
     }
     if (move % boardSize != 0) {
@@ -96,6 +118,7 @@ int updateScore(int move, int *valueBoard, char *occupationBoard, char player, i
             raid = true;
         } else if (occupationBoard[move - 1] != '.') {
             scoreGetRaid += 2 * value;
+            raidIndex[raidSize++] = move - 1;
         }
     }
     if (move % boardSize != boardSize - 1) {
@@ -104,16 +127,34 @@ int updateScore(int move, int *valueBoard, char *occupationBoard, char player, i
             raid = true;
         } else if (occupationBoard[move + 1] != '.') {
             scoreGetRaid += 2 * value;
+            raidIndex[raidSize++] = move + 1;
         }
     }
-    if (raid) return scoreGetRaid + scoreGetStake;
-    else return scoreGetStake;
+    if (raid) {
+        if (sn) {
+            sn->changeSize = raidSize;
+            occupationBoard[move] = player;
+            for (int i = 0; i < raidSize; i++) {
+                occupationBoard[raidIndex[i]] = player;
+                sn->changes[raidIndex[i]] = player;
+            }
+        }
+        return scoreGetRaid + scoreGetStake;
+    }
+    else {
+        if (sn) {
+            occupationBoard[move] = player;
+            sn->changeSize = 0;
+        }
+        return scoreGetStake;
+    }
 }
 
 
 int miniMax(int *valueBoard, char *occupationBoard, char player, int boardSize, int depth) {
     int score = boardScore(valueBoard, occupationBoard, player, boardSize);
     PossibleNode *head = constructPossibleLink(occupationBoard, boardSize);
+    stack<SearchNode> path;
     stack<PossibleNode*> moves;
     stack<int> scores;
     stack<int> results;
@@ -122,38 +163,42 @@ int miniMax(int *valueBoard, char *occupationBoard, char player, int boardSize, 
     int curDepth = 1;
     bool maxMove = true;
     PossibleNode *cur = head->next;
+    SearchNode sn;
     while (true) {
         if (curDepth < depth) {
             if (cur->move >= 0) {
                 curDepth++;
-                moves.push(cur);
-                scoreOffset = updateScore(cur->move, valueBoard, occupationBoard, player, boardSize);
-                occupationBoard[cur->move] = player;
+                sn.move = cur;
+                scoreOffset = updateScoreBoard(cur->move, valueBoard, occupationBoard, player, boardSize, &sn);
                 score = maxMove ? score + scoreOffset : score - scoreOffset;
-                scores.push(score);
-                if (maxMove) results.push(SCORE_MIN);
-                else results.push(SCORE_MAX);
+                sn.score = score;
+                sn.result = maxMove ? SCORE_MIN : SCORE_MAX;
+                path.push(sn);
                 cur->prev->next = cur->next;
                 cur->next->prev = cur->prev;
                 cur = head->next;
+                printOccupationBoard(occupationBoard, boardSize);
             } else {
                 if (moves.empty()) {
                     break;
                 }
                 curDepth--;
-                cur = moves.top();
+                sn = path.top();
+                cur = sn.move;
                 cur->prev->next = cur;
                 cur->next->prev = cur;
                 occupationBoard[cur->move] = '.';
-                score = scores.top();
-                moves.pop();
-                scores.pop();
+                for (int i = 0; i < sn.changeSize; i++) {
+                    occupationBoard[sn.changes[i]] = player;
+                }
+                score = sn.score;
+                path.pop();
                 cur = cur->next;
             }
         } else {
             int maxLeaf = SCORE_MIN;
             while (cur->move >= 0) {
-                scoreOffset = updateScore(cur->move, valueBoard, occupationBoard, player, boardSize);
+                scoreOffset = updateScoreBoard(cur->move, valueBoard, occupationBoard, player, boardSize, NULL);
                 maxLeaf = scoreOffset > maxLeaf ? scoreOffset : maxLeaf;
                 cur = cur->next;
             }
@@ -204,6 +249,4 @@ int main() {
     in.close();
     BenchMark b = BenchMark(36, 6);
     miniMax(valueBoard, occupationBoard, player, boardSize, depth);
-
-
 }
