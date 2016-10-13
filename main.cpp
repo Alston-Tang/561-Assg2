@@ -123,46 +123,7 @@ int boardScore(char player) {
     return myScore - oppScore;
 }
 
-bool raidable(int move, char player) {
-    bool raidable = false;
-    bool raided = false;
-    char oppPlayer = player == 'O' ? 'X' : 'O';
-    if (move >= boardSize) {
-        if (occupationBoard[move - boardSize] == player) {
-            raidable = true;
-        }
-        if (occupationBoard[move - boardSize] == oppPlayer) {
-            raided = true;
-        }
-    }
-    if (move < boardSize * boardSize - boardSize) {
-        if (occupationBoard[move + boardSize] == player) {
-            raidable = true;
-        }
-        if (occupationBoard[move + boardSize] == oppPlayer) {
-            raided = true;
-        }
-    }
-    if (move % boardSize != 0) {
-        if (occupationBoard[move - 1] == player) {
-            raidable = true;
-        }
-        if (occupationBoard[move - 1] == oppPlayer) {
-            raided = true;
-        }
-    }
-    if (move % boardSize != boardSize - 1) {
-        if (occupationBoard[move + 1] == player) {
-            raidable = true;
-        }
-        if (occupationBoard[move + 1] == oppPlayer) {
-            raided = true;
-        }
-    }
-    return raidable && raided;
-}
-
-int updateScoreBoard(int move, char player, bool tryRaid, SearchNode *sn) {
+int updateScoreBoard(int move, char player, SearchNode *sn) {
     //Change occupation board only if sn is not NULL
     bool raid = false;
     int scoreGetStake = 0, scoreGetRaid = 0;
@@ -205,7 +166,7 @@ int updateScoreBoard(int move, char player, bool tryRaid, SearchNode *sn) {
             raidIndex[raidSize++] = move + 1;
         }
     }
-    if (raid && tryRaid) {
+    if (raid) {
         if (sn) {
             sn->changeSize = raidSize;
             occupationBoard[move] = player;
@@ -488,9 +449,9 @@ int _miniMax(int *valueBoard, char *occupationBoard, char player, int boardSize,
     return 0;
 }
 */
-int maxR(int, int, char, PossibleNode*, bool, int, int);
+int maxR(int, int, char, PossibleNode*, int, int);
 
-int minR(int depth, int score, char player, PossibleNode *prevHead, bool ab, int a, int b) {
+int minR(int depth, int score, char player, PossibleNode *prevHead, int a, int b) {
     if (depth <= 0) return score;
     PossibleNode *head = constructPossibleLink(prevHead);
     PossibleNode *chosenNode = head->next;
@@ -500,37 +461,16 @@ int minR(int depth, int score, char player, PossibleNode *prevHead, bool ab, int
     SearchNode sn;
     int nodeResult = SCORE_MAX;
     char oppPlayer = player == 'O' ? 'X' : 'O';
-    //Consider stake only
     while (chosenNode->move >= 0) {
         removePossibleNode(chosenNode);
-        int moveResult = maxR(depth - 1, score - updateScoreBoard(chosenNode->move, player, false, &sn), oppPlayer, head, ab, a, b);
+        int moveResult = maxR(depth - 1, score - updateScoreBoard(chosenNode->move, player, &sn), oppPlayer, head, a, b);
         if (moveResult < nodeResult) {
             nodeResult = moveResult;
             b = moveResult;
         }
         undoBoard(chosenNode->move, player, sn);
         rescuePossibleNode(chosenNode);
-        if (ab && nodeResult <= a) {
-            return nodeResult;
-        }
-        chosenNode = chosenNode->next;
-    }
-    //Consider raid if possible
-    chosenNode = head->next;
-    while (chosenNode->move >= 0) {
-        if (!raidable(chosenNode->move, player)) {
-            chosenNode = chosenNode->next;
-            continue;
-        }
-        removePossibleNode(chosenNode);
-        int moveResult = maxR(depth - 1, score - updateScoreBoard(chosenNode->move, player, true, &sn), oppPlayer, head, ab, a, b);
-        if (moveResult < nodeResult) {
-            nodeResult = moveResult;
-            b = moveResult;
-        }
-        undoBoard(chosenNode->move, player, sn);
-        rescuePossibleNode(chosenNode);
-        if (ab && nodeResult <= a) {
+        if (nodeResult <= a) {
             return nodeResult;
         }
         chosenNode = chosenNode->next;
@@ -538,7 +478,7 @@ int minR(int depth, int score, char player, PossibleNode *prevHead, bool ab, int
     return nodeResult;
 }
 
-int maxR(int depth, int score, char player, PossibleNode *prevHead, bool ab, int a, int b) {
+int maxR(int depth, int score, char player, PossibleNode *prevHead, int a, int b) {
     if (depth <= 0) return score;
     PossibleNode *head = constructPossibleLink(prevHead);
     PossibleNode *chosenNode = head->next;
@@ -548,37 +488,16 @@ int maxR(int depth, int score, char player, PossibleNode *prevHead, bool ab, int
     SearchNode sn;
     int nodeResult = SCORE_MIN;
     char oppPlayer = player == 'O' ? 'X' : 'O';
-    //Consider stake only
     while (chosenNode->move >= 0) {
         removePossibleNode(chosenNode);
-        int moveResult = minR(depth - 1, score + updateScoreBoard(chosenNode->move, player, false, &sn), oppPlayer, head, ab, a, b);
+        int moveResult = minR(depth - 1, score + updateScoreBoard(chosenNode->move, player, &sn), oppPlayer, head, a, b);
         if (moveResult > nodeResult) {
             nodeResult = moveResult;
             a = moveResult;
         }
         undoBoard(chosenNode->move, player, sn);
         rescuePossibleNode(chosenNode);
-        if (ab && nodeResult >= b) {
-            return nodeResult;
-        }
-        chosenNode = chosenNode->next;
-    }
-    //Consider raid if possible
-    chosenNode = head->next;
-    while (chosenNode->move >= 0) {
-        if (!raidable(chosenNode->move, player)) {
-            chosenNode = chosenNode->next;
-            continue;
-        }
-        removePossibleNode(chosenNode);
-        int moveResult = minR(depth - 1, score + updateScoreBoard(chosenNode->move, player, true, &sn), oppPlayer, head, ab, a, b);
-        if (moveResult > nodeResult) {
-            nodeResult = moveResult;
-            a = moveResult;
-        }
-        undoBoard(chosenNode->move, player, sn);
-        rescuePossibleNode(chosenNode);
-        if (ab && nodeResult >= b) {
+        if (nodeResult >= b) {
             return nodeResult;
         }
         chosenNode = chosenNode->next;
@@ -586,7 +505,7 @@ int maxR(int depth, int score, char player, PossibleNode *prevHead, bool ab, int
     return nodeResult;
 }
 
-SearchResult miniMaxR(int depth, char player, bool ab) {
+SearchResult miniMaxR(int depth, char player) {
     SearchResult rv;
     if (depth <= 0) return rv;
     int score = boardScore(player);
@@ -596,33 +515,13 @@ SearchResult miniMaxR(int depth, char player, bool ab) {
     int nodeResult = SCORE_MIN;
     int a = SCORE_MIN, b = SCORE_MAX;
     char oppPlayer = player == 'O' ? 'X' : 'O';
-    //Consider stake only
     while (chosenNode->move >= 0) {
         removePossibleNode(chosenNode);
-        int moveResult = minR(depth - 1, score + updateScoreBoard(chosenNode->move, player, false, &sn), oppPlayer, head, ab, a, b);
+        int moveResult = minR(depth - 1, score + updateScoreBoard(chosenNode->move, player, &sn), oppPlayer, head, a, b);
         if (moveResult > nodeResult) {
             rv.move = chosenNode->move;
             nodeResult = moveResult;
             rv.raid = false;
-            a = moveResult;
-        }
-        undoBoard(chosenNode->move, player, sn);
-        rescuePossibleNode(chosenNode);
-        chosenNode = chosenNode->next;
-    }
-    //Consider raid if possible
-    chosenNode = head->next;
-    while (chosenNode->move >= 0) {
-        if (!raidable(chosenNode->move, player)) {
-            chosenNode = chosenNode->next;
-            continue;
-        }
-        removePossibleNode(chosenNode);
-        int moveResult = minR(depth - 1, score + updateScoreBoard(chosenNode->move, player, true, &sn), oppPlayer, head, ab, a, b);
-        if (moveResult > nodeResult) {
-            rv.move = chosenNode->move;
-            nodeResult = moveResult;
-            rv.raid = true;
             a = moveResult;
         }
         undoBoard(chosenNode->move, player, sn);
@@ -660,11 +559,7 @@ int main() {
     in.close();
     BenchMark b = BenchMark(36, 6);
     SearchResult result;
-    if (mode == "ALPHABETA") {
-        result = miniMaxR(depth, player, true);
-    } else {
-        result = miniMaxR(depth, player, false);
-    }
+    result = miniMaxR(depth, player);
     int row = result.move / boardSize + 1;
     char col = static_cast<char>(result.move % boardSize) + 'A';
     SearchNode sn;
@@ -672,7 +567,7 @@ int main() {
     ofstream out;
     out.open("output.txt");
     out << col << row << " " + moveType << endl;
-    updateScoreBoard(result.move, player, true, &sn);
+    updateScoreBoard(result.move, player, &sn);
     printOccupationBoard(&out);
     out.close();
 }
