@@ -31,7 +31,6 @@ void printOccupationBoard(ofstream *out) {
                 *out << occupationBoard[i * boardSize + j];
             }
             *out << endl;
-
         }
     }
 }
@@ -660,7 +659,12 @@ int main() {
     }
     in.close();
     BenchMark b = BenchMark(36, 6);
-    SearchResult result = miniMaxR(depth, player, false);
+    SearchResult result;
+    if (mode == "ALPHABETA") {
+        result = miniMaxR(depth, player, true);
+    } else {
+        result = miniMaxR(depth, player, false);
+    }
     int row = result.move / boardSize + 1;
     char col = static_cast<char>(result.move % boardSize) + 'A';
     SearchNode sn;
