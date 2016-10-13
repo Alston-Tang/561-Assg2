@@ -63,29 +63,6 @@ void printOccupationBoard(ofstream *out) {
     }
 }
 
-class BenchMark{
-    chrono::high_resolution_clock t;
-    chrono::high_resolution_clock::time_point start, end;
-    int b;
-    int d;
-public:
-    BenchMark(int _b, int _d) : b(_b), d(_d){};
-    void startTimer(){
-        start = chrono::high_resolution_clock::now();
-    }
-    void endTimer() {
-        end = chrono::high_resolution_clock::now();
-    }
-    double stepsPerS() {
-        long long totalSteps = 1;
-        for (int i = b; i > b - d; i--) {
-            totalSteps *= i;
-        }
-        cout << totalSteps / chrono::duration_cast<chrono::seconds>(end - start).count() << endl;
-        return 0;
-    }
-};
-
 struct PossibleNode {
     PossibleNode *prev, *next;
     int move;
@@ -559,7 +536,6 @@ int main() {
         occupationBoard[i] = c;
     }
     in.close();
-    BenchMark b = BenchMark(36, 6);
     adjList = constructAdjList();
     SearchResult result;
     result = miniMaxR(depth, player);
