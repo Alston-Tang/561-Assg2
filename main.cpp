@@ -22,6 +22,8 @@ int boardSize;
 char *occupationBoard;
 int *valueBoard;
 AdjMove *adjList;
+//Test
+int nodeCount = 0;
 
 AdjMove* constructAdjList() {
     AdjMove *rv = new AdjMove[boardSize * boardSize];
@@ -82,39 +84,6 @@ struct SearchResult {
     int move;
     int result;
 };
-
-void removePossibleNode(PossibleNode *node) {
-    node->prev->next = node->next;
-    node->next->prev = node->prev;
-}
-
-void rescuePossibleNode(PossibleNode *node) {
-    node->next->prev = node;
-    node->prev->next = node;
-}
-
-PossibleNode* constructPossibleLink(PossibleNode* previous) {
-    if (previous) {
-        return previous;
-    }
-    PossibleNode *head = new PossibleNode;
-    PossibleNode *cur = head;
-    for (int i = 0; i < boardSize * boardSize; i++) {
-        if (occupationBoard[i] == '.') {
-            PossibleNode *newNode = new PossibleNode;
-            cur->next = newNode;
-            newNode->prev = cur;
-            newNode->move = i;
-            cur = newNode;
-        }
-    }
-    PossibleNode *end = new PossibleNode;
-    cur->next = end;
-    end->prev = cur;
-    end->move = -1;
-    return head;
-}
-
 int boardScore(char player) {
     int myScore = 0;
     int oppScore = 0;
@@ -170,6 +139,57 @@ void undoBoard(int move, char player, SearchNode &sn) {
     for (int i = 0; i < sn.changeSize; i++) {
         occupationBoard[sn.changes[i]] = player;
     }
+}
+
+void removePossibleNode(PossibleNode *node) {
+    node->prev->next = node->next;
+    node->next->prev = node->prev;
+}
+
+void rescuePossibleNode(PossibleNode *node) {
+    node->next->prev = node;
+    node->prev->next = node;
+}
+
+PossibleNode* constructPossibleLink(PossibleNode* previous, int previousMove, char player) {
+    PossibleNode *head = NULL;
+    PossibleNode *tail = NULL;
+    if (previous) {
+        head = previous;
+    } else {
+        head = new PossibleNode;
+        tail = new PossibleNode;
+        head->next = tail;
+        tail->prev = head;
+        tail->move = -1;
+        PossibleNode *cur;
+        for (int i = 0; i < boardSize * boardSize; i++) {
+            if (occupationBoard[i] == '.') {
+                PossibleNode *newNode = new PossibleNode;
+                newNode->move = i;
+                cur = head->next;
+                while (cur) {
+                    if (cur->move >= 0) {
+                        if (updateScoreBoard(cur->move, player, NULL) < updateScoreBoard(i, player, NULL)) {
+                            cur->prev->next = newNode;
+                            newNode->prev = cur->prev;
+                            newNode->next = cur;
+                            cur->prev = newNode;
+                            break;
+                        }
+                    } else {
+                        cur->prev->next = newNode;
+                        newNode->prev = cur->prev;
+                        newNode->next = cur;
+                        cur->prev = newNode;
+                        break;
+                    }
+                    cur = cur->next;
+                }
+            }
+        }
+    }
+    return head;
 }
 
 /*
@@ -428,11 +448,12 @@ int _miniMax(int *valueBoard, char *occupationBoard, char player, int boardSize,
     return 0;
 }
 */
-int maxR(int, int, char, PossibleNode*, int, int);
+int maxR(int, int, char, PossibleNode*, int, int, int);
 
-int minR(int depth, int score, char player, PossibleNode *prevHead, int a, int b) {
+int minR(int depth, int score, char player, PossibleNode *prevHead, int prevMove, int a, int b) {
+    nodeCount++;
     if (depth <= 0) return score;
-    PossibleNode *head = constructPossibleLink(prevHead);
+    PossibleNode *head = constructPossibleLink(prevHead, prevMove, player);
     PossibleNode *chosenNode = head->next;
     if (chosenNode->move < 0) {
         return score;
@@ -442,7 +463,7 @@ int minR(int depth, int score, char player, PossibleNode *prevHead, int a, int b
     char oppPlayer = player == 'O' ? 'X' : 'O';
     while (chosenNode->move >= 0) {
         removePossibleNode(chosenNode);
-        int moveResult = maxR(depth - 1, score - updateScoreBoard(chosenNode->move, player, &sn), oppPlayer, head, a, b);
+        int moveResult = maxR(depth - 1, score - updateScoreBoard(chosenNode->move, player, &sn), oppPlayer, head, chosenNode->move, a, b);
         if (moveResult < nodeResult) {
             nodeResult = moveResult;
             b = moveResult;
@@ -457,9 +478,10 @@ int minR(int depth, int score, char player, PossibleNode *prevHead, int a, int b
     return nodeResult;
 }
 
-int maxR(int depth, int score, char player, PossibleNode *prevHead, int a, int b) {
+int maxR(int depth, int score, char player, PossibleNode *prevHead, int prevMove, int a, int b) {
+    nodeCount++;
     if (depth <= 0) return score;
-    PossibleNode *head = constructPossibleLink(prevHead);
+    PossibleNode *head = constructPossibleLink(prevHead, prevMove, player);
     PossibleNode *chosenNode = head->next;
     if (chosenNode->move < 0) {
         return score;
@@ -469,7 +491,7 @@ int maxR(int depth, int score, char player, PossibleNode *prevHead, int a, int b
     char oppPlayer = player == 'O' ? 'X' : 'O';
     while (chosenNode->move >= 0) {
         removePossibleNode(chosenNode);
-        int moveResult = minR(depth - 1, score + updateScoreBoard(chosenNode->move, player, &sn), oppPlayer, head, a, b);
+        int moveResult = minR(depth - 1, score + updateScoreBoard(chosenNode->move, player, &sn), oppPlayer, head, chosenNode->move, a, b);
         if (moveResult > nodeResult) {
             nodeResult = moveResult;
             a = moveResult;
@@ -485,10 +507,11 @@ int maxR(int depth, int score, char player, PossibleNode *prevHead, int a, int b
 }
 
 SearchResult miniMaxR(int depth, char player) {
+    nodeCount++;
     SearchResult rv;
     if (depth <= 0) return rv;
     int score = boardScore(player);
-    PossibleNode *head = constructPossibleLink(NULL);
+    PossibleNode *head = constructPossibleLink(NULL, -1, player);
     PossibleNode *chosenNode = head->next;
     SearchNode sn;
     int nodeResult = SCORE_MIN;
@@ -496,7 +519,7 @@ SearchResult miniMaxR(int depth, char player) {
     char oppPlayer = player == 'O' ? 'X' : 'O';
     while (chosenNode->move >= 0) {
         removePossibleNode(chosenNode);
-        int moveResult = minR(depth - 1, score + updateScoreBoard(chosenNode->move, player, &sn), oppPlayer, head, a, b);
+        int moveResult = minR(depth - 1, score + updateScoreBoard(chosenNode->move, player, &sn), oppPlayer, head, chosenNode->move, a, b);
         if (moveResult > nodeResult) {
             rv.move = chosenNode->move;
             nodeResult = moveResult;
@@ -511,8 +534,9 @@ SearchResult miniMaxR(int depth, char player) {
     return rv;
 }
 
-int main() {
-    ifstream in("input.txt");
+int main(int argc, char* argv[]) {
+    string inputFile = argc > 1 ? argv[1] : "input.txt";
+    ifstream in(inputFile);
     int  depth;
     char player;
     string mode;
@@ -544,8 +568,11 @@ int main() {
     SearchNode sn;
     string moveType = result.raid ? "Raid" : "Stake";
     ofstream out;
-    out.open("output.txt");
+    string outputFile = argc > 2 ? argv[2] : "output.txt";
+    out.open(outputFile);
+    out << nodeCount << endl;
     out << col << row << " " + moveType << endl;
+    out << result.result << endl;
     updateScoreBoard(result.move, player, &sn);
     printOccupationBoard(&out);
     out.close();
