@@ -10,10 +10,38 @@
 
 using namespace std;
 
+
+//Adjacent list
+struct AdjMove {
+    int size;
+    int list[4];
+};
+
 //Global Variable
 int boardSize;
 char *occupationBoard;
 int *valueBoard;
+AdjMove *adjList;
+
+AdjMove* constructAdjList() {
+    AdjMove *rv = new AdjMove[boardSize * boardSize];
+    for (int move = 0; move < boardSize * boardSize; move++) {
+        rv[move].size = 0;
+        if (move >= boardSize) {
+            rv[move].list[rv[move].size++] = move - boardSize;
+        }
+        if (move < boardSize * boardSize - boardSize) {
+            rv[move].list[rv[move].size++] = move + boardSize;
+        }
+        if (move % boardSize != 0) {
+            rv[move].list[rv[move].size++] = move - 1;
+        }
+        if (move % boardSize != boardSize - 1) {
+            rv[move].list[rv[move].size++] = move + 1;
+        }
+    }
+    return rv;
+};
 
 
 void printOccupationBoard(ofstream *out) {
@@ -130,40 +158,14 @@ int updateScoreBoard(int move, char player, SearchNode *sn) {
     int raidSize = 0;
     int raidIndex[3];
     scoreGetStake += valueBoard[move];
-    if (move >= boardSize) {
-        int value = valueBoard[move - boardSize];
-        if (occupationBoard[move - boardSize] == player) {
+    for (int i = 0; i < adjList[move].size; i++) {
+        int adjMove = adjList[move].list[i];
+        int value = valueBoard[adjMove];
+        if (occupationBoard[adjMove] == player) {
             raid = true;
-        } else if (occupationBoard[move - boardSize] != '.') {
+        } else if (occupationBoard[adjMove] != '.') {
             scoreGetRaid += 2 * value;
-            raidIndex[raidSize++] = move - boardSize;
-        }
-    }
-    if (move < boardSize * boardSize - boardSize) {
-        int value = valueBoard[move + boardSize];
-        if (occupationBoard[move + boardSize] == player) {
-            raid = true;
-        } else if (occupationBoard[move + boardSize] != '.') {
-            scoreGetRaid += 2 * value;
-            raidIndex[raidSize++] = move + boardSize;
-        }
-    }
-    if (move % boardSize != 0) {
-        int value = valueBoard[move - 1];
-        if (occupationBoard[move - 1] == player) {
-            raid = true;
-        } else if (occupationBoard[move - 1] != '.') {
-            scoreGetRaid += 2 * value;
-            raidIndex[raidSize++] = move - 1;
-        }
-    }
-    if (move % boardSize != boardSize - 1) {
-        int value = valueBoard[move + 1];
-        if (occupationBoard[move + 1] == player) {
-            raid = true;
-        } else if (occupationBoard[move + 1] != '.') {
-            scoreGetRaid += 2 * value;
-            raidIndex[raidSize++] = move + 1;
+            raidIndex[raidSize++] = adjMove;
         }
     }
     if (raid) {
@@ -558,6 +560,7 @@ int main() {
     }
     in.close();
     BenchMark b = BenchMark(36, 6);
+    adjList = constructAdjList();
     SearchResult result;
     result = miniMaxR(depth, player);
     int row = result.move / boardSize + 1;
