@@ -610,8 +610,10 @@ SearchResult miniMaxR(int depth, char player, bool ab) {
     return rv;
 }
 
-int main() {
-    ifstream in("input.txt");
+int main(int argc, char *argv[]) {
+    string input_file = argc >= 2 ? argv[1] : "input.txt";
+    string output_file = argc >= 3 ? argv[2] : "output.txt";
+    ifstream in(input_file);
     int  depth;
     char player;
     string mode;
@@ -647,7 +649,7 @@ int main() {
     SearchNode sn;
     string moveType = result.raid ? "Raid" : "Stake";
     ofstream out;
-    out.open("output.txt");
+    out.open(output_file);
     out << col << row << " " + moveType << endl;
     updateScoreBoard(result.move, player, true, &sn);
     printOccupationBoard(&out);
