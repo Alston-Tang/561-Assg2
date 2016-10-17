@@ -395,7 +395,7 @@ int main(int argc, char *argv[]) {
     ofstream out;
     out.open(output_file);
     out << col << row << " " + moveType << endl;
-    updateScoreBoard(result.move, player, true, &sn);
+    updateScoreBoard(result.move, player, result.raid, &sn);
     printOccupationBoard(&out);
     out.close();
 }
